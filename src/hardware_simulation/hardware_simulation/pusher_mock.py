@@ -42,7 +42,7 @@ class PusherMock(Node):
     def _on_item_state(self, msg: ItemState):
         self._latest_item_state = msg
 
-    def _handle_push(self, request, response):
+    async def _handle_push(self, request, response):
         if random.random() < FAILURE_RATE:
             response.success = False
             response.error_message = 'Random hardware failure'
@@ -68,7 +68,7 @@ class PusherMock(Node):
             response.error_message = f'Invalid push direction: {request.direction}'
             return response
 
-        item_success, item_error = self._call_item_move(target)
+        item_success, item_error = await self._call_item_move(target)
         if not item_success:
             response.success = False
             response.error_message = f'Failed to move item: {item_error}'
@@ -81,7 +81,7 @@ class PusherMock(Node):
         self.get_logger().info(f'Item pushed to position {target}')
         return response
 
-    def _call_item_move(self, target_position: int):
+    async def _call_item_move(self, target_position: int):
         if not self._item_move_client.wait_for_service(timeout_sec=2.0):
             return False, '/item/move service not available'
 
@@ -89,7 +89,7 @@ class PusherMock(Node):
         req.target_position = target_position
 
         future = self._item_move_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+        await future
 
         if future.result() is None:
             return False, 'Service call timed out'

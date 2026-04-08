@@ -48,7 +48,7 @@ class RobotMock(Node):
         msg.position = self._position
         self._status_pub.publish(msg)
 
-    def _handle_move(self, request, response):
+    async def _handle_move(self, request, response):
         target = request.target_position
 
         if target not in (RED_TOTE, SCAN_TABLE):
@@ -66,7 +66,7 @@ class RobotMock(Node):
         time.sleep(0.5)  # simulate motion
 
         if target == SCAN_TABLE:
-            item_success, item_error = self._call_item_move(SCAN_TABLE)
+            item_success, item_error = await self._call_item_move(SCAN_TABLE)
             if not item_success:
                 self._state = IDLE
                 response.success = False
@@ -81,7 +81,7 @@ class RobotMock(Node):
         self.get_logger().info(f'Robot moved to position {target}')
         return response
 
-    def _call_item_move(self, target_position: int):
+    async def _call_item_move(self, target_position: int):
         if not self._item_move_client.wait_for_service(timeout_sec=2.0):
             return False, '/item/move service not available'
 
@@ -89,7 +89,7 @@ class RobotMock(Node):
         req.target_position = target_position
 
         future = self._item_move_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+        await future
 
         if future.result() is None:
             return False, 'Service call timed out'

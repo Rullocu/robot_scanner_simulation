@@ -77,12 +77,13 @@ class ItemMock(Node):
         return response
 
     def _generate_barcodes(self) -> list[Barcode]:
-        num_barcodes = random.randint(0, 6)
-        faces = random.sample(range(6), min(num_barcodes, 6))
+        num_faces = random.randint(0, 6)
+        faces = random.sample(range(6), num_faces)
+        shared_id = str(uuid.uuid4())[:8]
         barcodes = []
         for face in faces:
             b = Barcode()
-            b.barcode_id = str(uuid.uuid4())[:8]
+            b.barcode_id = shared_id
             b.face = face
             barcodes.append(b)
         return barcodes

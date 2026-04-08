@@ -69,7 +69,7 @@ class MonitorNode(Node):
         self._robot_status = None
         self._item_state = None
         self._occupancy = None
-        self._log: deque = deque(maxlen=10)   # newest first
+        self._log: deque = deque(maxlen=2)   # newest first
 
         self.create_subscription(
             ManagerState, '/manager/state', self._on_manager_state, 10)
@@ -193,7 +193,7 @@ class MonitorNode(Node):
         lines.append(SEP)
 
         # ── log ──────────────────────────────────────────────────────────────
-        lines.append(f'  {BOLD}LOG{RESET}  (last 10 transitions, newest first)')
+        lines.append(f'  {BOLD}LOG{RESET}  (last 2 transitions, newest first)')
         lines.append('')
         if self._log:
             for entry in self._log:

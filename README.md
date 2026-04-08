@@ -26,3 +26,5 @@ ros2 service call /scanner/trigger scan_table_interfaces/srv/TriggerScan "{}"
 ros2 service call /pusher/push scan_table_interfaces/srv/Push "{direction: 0}"
 
 ros2 launch robot_scanner_bringup bringup.launch.py
+
+ros2 run scanning_process_monitor monitor

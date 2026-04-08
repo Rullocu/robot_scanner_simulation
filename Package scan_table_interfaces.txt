@@ -1,0 +1,58 @@
+Package: scan_table_interfaces
+--- MESSAGES ---
+ItemState.msg
+uint8 item_id
+uint8 position          # 0=RED_TOTE, 1=SCAN_TABLE, 2=POCKET, 3=REJECT_AREA, 4=UNKNOWN
+float32 weight
+Barcode[] barcodes
+Barcode.msg
+string barcode_id
+uint8 face              # 0-5, which face of the item
+TableOccupancy.msg
+bool occupied
+float32 weight
+RobotStatus.msg
+uint8 state             # 0=IDLE, 1=BUSY, 2=ERROR
+uint8 position          # 0=RED_TOTE, 1=SCAN_TABLE
+--- SERVICES ---
+PickAndPlace.srv
+# Request
+uint8 source            # 0=RED_TOTE, 1=SCAN_TABLE
+uint8 destination       # 0=RED_TOTE, 1=SCAN_TABLE
+---
+# Response
+bool success
+string error_message
+TriggerScan.srv
+# Request
+# (empty — just triggers all scanners)
+---
+# Response
+bool success
+Barcode[] barcodes      # deduplicated reads from all 6 faces, only faces that returned a read
+string error_message
+Push.srv
+# Request
+uint8 direction         # 0=POCKET, 1=REJECT
+---
+# Response
+bool success
+string error_message
+MoveItem.srv
+# Request
+uint8 item_id
+uint8 target_position   # 0=RED_TOTE, 1=SCAN_TABLE, 2=POCKET, 3=REJECT_AREA
+---
+# Response
+bool success
+string error_message
+
+---
+
+SpawnItem.srv
+# Request
+# (empty — spawn new item in red tote, delete previous)
+---
+# Response
+bool success
+string error_message

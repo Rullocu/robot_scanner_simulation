@@ -132,7 +132,7 @@ Description:
   Simulates the robot arm with two reachable positions.
 
 Topics:
-  Publishes: /robot/status (RobotStatus.msg, 5Hz)
+  Publishes: /robot/status (RobotStatus.msg, 10Hz)
 
 Services:
   Serves: /robot/move (MoveRobot.srv)
@@ -149,7 +149,7 @@ Business logic:
     beacaus in this case it is not a pick and place call, rather just an move robot to default position call 
   - Each service call has 5% chance of random failure
     (return success=false, state stays IDLE, position unchanged).
-  - Publishes status at 5Hz.
+  - Publishes status at 10Hz.
 
 Dependencies: scan_table_interfaces
 
@@ -213,7 +213,7 @@ Description:
 
 Topics:
   Subscribes: /item/state (ItemState.msg) — reads ground truth
-  Publishes: /scan_table/occupancy (TableOccupancy.msg, 5Hz)
+  Publishes: /scan_table/occupancy (TableOccupancy.msg, 10Hz)
 
 Services: none
 

@@ -79,7 +79,7 @@ public:
     push_client_        = create_client<scan_table_interfaces::srv::Push>("/pusher/push");
 
     // state machine timer — runs every 100 ms
-    timer_ = create_wall_timer(100ms, [this]() { step(); });
+    timer_ = create_wall_timer(1000ms, [this]() { step(); });
 
     RCLCPP_INFO(get_logger(), "ScanTableManager started");
   }
@@ -123,11 +123,16 @@ private:
         break;
 
       case State::VERIFY_ITEM_ON_TABLE:
-        if (latest_occupancy_.occupied) {
-          transition(State::SCAN_ITEM);
-        } else {
-          transition(State::ERROR_RECOVERY);
-        }
+        waiting_for_service_ = true;
+        sleep_timer_ = create_wall_timer(500ms, [this]() {
+          sleep_timer_->cancel();
+          waiting_for_service_ = false;
+          if (latest_occupancy_.occupied) {
+            transition(State::SCAN_ITEM);
+          } else {
+            transition(State::ERROR_RECOVERY);
+          }
+        });
         break;
 
       case State::SCAN_ITEM:

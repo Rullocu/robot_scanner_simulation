@@ -13,6 +13,9 @@ ros2 run hardware_simulation pusher_mock
 
 ros2 run hardware_simulation table_sensor_mock 
 
+ros2 launch scan_table_manager scan_table_manager.launch.py 
+
+
 ros2 service call /item/spawn scan_table_interfaces/srv/SpawnItem "{}"
 
 ros2 service call /robot/move scan_table_interfaces/srv/MoveRobot "{target_position: 1}"

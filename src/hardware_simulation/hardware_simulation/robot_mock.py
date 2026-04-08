@@ -38,7 +38,7 @@ class RobotMock(Node):
         self._item_move_client = self.create_client(
             MoveItem, '/item/move', callback_group=cb_group)
 
-        self.create_timer(0.2, self._publish_status)  # 5 Hz
+        self.create_timer(0.1, self._publish_status)  # 10 Hz
 
         self.get_logger().info('robot_mock started')
 

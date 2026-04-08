@@ -18,7 +18,7 @@ class TableSensorMock(Node):
         )
         self._occupancy_pub = self.create_publisher(TableOccupancy, '/scan_table/occupancy', 10)
 
-        self.create_timer(0.2, self._publish_occupancy)  # 5 Hz
+        self.create_timer(0.1, self._publish_occupancy)  # 10 Hz
 
         self.get_logger().info('table_sensor_mock started')
 

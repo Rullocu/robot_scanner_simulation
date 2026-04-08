@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'item_mock = hardware_simulation.item_mock:main',
+            'robot_mock = hardware_simulation.robot_mock:main',
         ],
     },
 )

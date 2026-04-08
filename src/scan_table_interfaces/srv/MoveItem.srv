@@ -1,0 +1,4 @@
+uint8 target_position   # 0=RED_TOTE, 1=SCAN_TABLE, 2=POCKET, 3=REJECT_AREA
+---
+bool success
+string error_message

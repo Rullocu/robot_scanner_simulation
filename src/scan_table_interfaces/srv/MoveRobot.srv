@@ -1,0 +1,4 @@
+uint8 target_position   # 0=RED_TOTE, 1=SCAN_TABLE
+---
+bool success
+string error_message

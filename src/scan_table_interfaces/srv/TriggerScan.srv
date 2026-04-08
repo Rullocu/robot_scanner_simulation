@@ -1,0 +1,5 @@
+
+---
+bool success
+scan_table_interfaces/Barcode[] barcodes
+string error_message

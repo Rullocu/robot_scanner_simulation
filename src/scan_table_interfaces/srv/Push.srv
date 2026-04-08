@@ -1,0 +1,4 @@
+uint8 direction   # 0=POCKET, 1=REJECT
+---
+bool success
+string error_message

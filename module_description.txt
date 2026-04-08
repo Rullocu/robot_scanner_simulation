@@ -11,6 +11,16 @@ Type: ROS2 interfaces package (msg/srv only)
 
 --- MESSAGES ---
 
+ManagerState.msg
+  uint8 state                  # current state enum value (matches State enum order)
+  string state_name            # human-readable, e.g. "SCAN_ITEM"
+  string last_transition       # e.g. "PICK_ITEM → VERIFY_ITEM_ON_TABLE"
+  string transition_reason     # human-readable reason, e.g. "MoveRobot success"
+  uint8 current_item_id
+  uint32 item_library_size     # total unique barcode IDs accumulated so far
+  Published by: scan_table_manager
+  Subscribed by: scanning_process_monitor
+
 ItemState.msg
   uint8 item_id
   uint8 position          # 0=RED_TOTE, 1=SCAN_TABLE, 2=POCKET, 3=REJECT_AREA, 4=UNKNOWN
@@ -237,6 +247,7 @@ Description:
 Topics:
   Subscribes: /scan_table/occupancy (TableOccupancy.msg)
   Subscribes: /robot/status (RobotStatus.msg)
+  Publishes:  /manager/state (ManagerState.msg, 10Hz)
 
 Services:
   Calls: /robot/move (MoveRobot.srv)
@@ -252,8 +263,76 @@ Internal state:
   - current_barcodes: vector<Barcode>
   - item_library: map<string, uint32> (barcode_id -> count)
   - latest_occupancy: TableOccupancy (cached from subscription)
+  - last_transition: string (cached for publishing, e.g. "PICK_ITEM → VERIFY_ITEM_ON_TABLE")
+  - transition_reason: string (cached for publishing, e.g. "MoveRobot success")
+
+Publishing logic:
+  - A dedicated 10Hz timer calls publish_state() independently of the 1Hz
+    state machine timer. Both timers run on the same single-threaded executor
+    (rclcpp::spin), so no mutex is needed — callbacks are serialized.
+  - publish_state() assembles ManagerState from current internal fields and
+    publishes to /manager/state.
+  - last_transition and transition_reason are updated inside transition() and
+    the service-call callbacks whenever a state change occurs.
 
 Business logic: see state machine document.
+
+Dependencies: scan_table_interfaces
+
+
+================================================================================
+MODULE: scanning_process_monitor
+================================================================================
+Description:
+  Python node in scanning_process_monitor package.
+  External read-only monitor. Subscribes to all relevant topics and renders
+  a live terminal dashboard at 10Hz using ANSI escape codes (clear + reprint).
+  Runs in its own terminal, independent of the other nodes.
+
+Topics:
+  Subscribes: /manager/state      (ManagerState.msg)
+  Subscribes: /robot/status       (RobotStatus.msg)
+  Subscribes: /item/state         (ItemState.msg)
+  Subscribes: /scan_table/occupancy (TableOccupancy.msg)
+
+Services: none
+
+Internal state:
+  - latest_manager_state: ManagerState (cached)
+  - latest_robot_status:  RobotStatus  (cached)
+  - latest_item_state:    ItemState    (cached)
+  - latest_occupancy:     TableOccupancy (cached)
+  - log_buffer: deque of strings, max 10 entries (rolling log tail)
+
+Display layout (refreshed at 10Hz via wall timer):
+
+  ┌── STATE MACHINE ────────────────────────────────────────────────────┐
+  │  All 11 states listed vertically as [ STATE_NAME ] boxes.           │
+  │  The active state is highlighted with ANSI inverse/bold/color.      │
+  │  All others are rendered dim.                                        │
+  └─────────────────────────────────────────────────────────────────────┘
+  ┌── POSITIONS ────────────────────────────────────────────────────────┐
+  │  ROBOT:  [ RED_TOTE ] [ SCAN_TABLE ]                                │
+  │  ITEM:   [ RED_TOTE ] [ SCAN_TABLE ] [ POCKET ] [ REJECT ] [ UNK ] │
+  │  Active position highlighted; others dim.                            │
+  └─────────────────────────────────────────────────────────────────────┘
+  ┌── STATUS ───────────────────────────────────────────────────────────┐
+  │  TABLE:  occupied=true   weight=2.30 kg                             │
+  │  ROBOT:  state=IDLE      item_library_size=7                        │
+  └─────────────────────────────────────────────────────────────────────┘
+  ┌── LOG (last 10 entries) ────────────────────────────────────────────┐
+  │  [HH:MM:SS.mmm]  PICK_ITEM → VERIFY_ITEM_ON_TABLE  (MoveRobot ok)  │
+  │  [HH:MM:SS.mmm]  TABLE occupied=true, weight=2.30 kg               │
+  │  ...                                                                 │
+  └─────────────────────────────────────────────────────────────────────┘
+
+Rendering logic:
+  - A 10Hz wall timer fires render(). It calls print('\033[2J\033[H', end='')
+    to clear the terminal, then prints all four panels.
+  - Each subscription callback updates only its cached field and appends a
+    line to log_buffer (truncating to max 10). No rendering in callbacks.
+  - Rendering is thus decoupled from message arrival; the display always
+    shows the freshest cached values.
 
 Dependencies: scan_table_interfaces
 
@@ -271,6 +350,10 @@ Launches:
   5. table_sensor_mock
   6. ScanTableManager
 
+Note: ScanningProcessMonitor is NOT part of the main launch file.
+Run it separately in its own terminal:
+  ros2 run scanning_process_monitor monitor
+
 
 ================================================================================
 DEPENDENCY GRAPH
@@ -283,8 +366,10 @@ scan_table_interfaces
   │     ├── scanner_mock
   │     ├── pusher_mock
   │     └── table_sensor_mock
-  └── scan_table_manager (depends on interfaces)
-        └── ScanTableManager
+  ├── scan_table_manager (depends on interfaces)
+  │     └── ScanTableManager
+  └── scanning_process_monitor (depends on interfaces, read-only observer)
+        └── ScanningProcessMonitor
 
 
 ================================================================================
@@ -292,12 +377,13 @@ COMMUNICATION MAP
 ================================================================================
 
 ScanTableManager
-  ├── calls /robot/move        → robot_mock
-  ├── calls /item/spawn        → item_mock
-  ├── calls /scanner/trigger   → scanner_mock
-  ├── calls /pusher/push       → pusher_mock
-  ├── subscribes /scan_table/occupancy  ← table_sensor_mock
-  └── subscribes /robot/status          ← robot_mock
+  ├── calls /robot/move                → robot_mock
+  ├── calls /item/spawn                → item_mock
+  ├── calls /scanner/trigger           → scanner_mock
+  ├── calls /pusher/push               → pusher_mock
+  ├── subscribes /scan_table/occupancy ← table_sensor_mock
+  ├── subscribes /robot/status         ← robot_mock
+  └── publishes  /manager/state        → ScanningProcessMonitor
 
 robot_mock
   └── calls /item/move         → item_mock
@@ -310,3 +396,9 @@ scanner_mock
 
 table_sensor_mock
   └── subscribes /item/state   ← item_mock
+
+ScanningProcessMonitor  (read-only, no services, no outgoing topics)
+  ├── subscribes /manager/state       ← ScanTableManager
+  ├── subscribes /robot/status        ← robot_mock
+  ├── subscribes /item/state          ← item_mock
+  └── subscribes /scan_table/occupancy ← table_sensor_mock

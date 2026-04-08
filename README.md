@@ -24,3 +24,5 @@ ros2 service call /scanner/trigger scan_table_interfaces/srv/TriggerScan "{}"
 
 # Push to pocket (item must be on scan table first)
 ros2 service call /pusher/push scan_table_interfaces/srv/Push "{direction: 0}"
+
+ros2 launch robot_scanner_bringup bringup.launch.py

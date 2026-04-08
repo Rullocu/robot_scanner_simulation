@@ -43,7 +43,7 @@ STATE: SCAN_ITEM
   transition:
     success == true && barcodes.size() > 0 → ITEM_MANAGEMENT
     success == true && barcodes.size() == 0 → CLEAN_SCAN_TABLE
-    success == false                       → CLEAN_SCAN_TABLE
+    success == false                       → ERROR_RECOVERY
 
 STATE: ITEM_MANAGEMENT
   action:

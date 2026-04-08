@@ -9,6 +9,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ItemState.msg"
   "msg/TableOccupancy.msg"
   "msg/RobotStatus.msg"
+  "msg/ManagerState.msg"
   "srv/MoveRobot.srv"
   "srv/MoveItem.srv"
   "srv/SpawnItem.srv"

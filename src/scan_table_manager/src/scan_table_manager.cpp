@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include "scan_table_interfaces/msg/manager_state.hpp"
 #include "scan_table_interfaces/msg/robot_status.hpp"
 #include "scan_table_interfaces/msg/table_occupancy.hpp"
 #include "scan_table_interfaces/srv/move_robot.hpp"
@@ -78,8 +79,14 @@ public:
     trigger_scan_client_= create_client<scan_table_interfaces::srv::TriggerScan>("/scanner/trigger");
     push_client_        = create_client<scan_table_interfaces::srv::Push>("/pusher/push");
 
-    // state machine timer — runs every 100 ms
+    // publisher
+    state_pub_ = create_publisher<scan_table_interfaces::msg::ManagerState>("/manager/state", 10);
+
+    // state machine timer — runs every 1000 ms
     timer_ = create_wall_timer(1000ms, [this]() { step(); });
+
+    // state publisher timer — runs every 100 ms (10 Hz)
+    pub_timer_ = create_wall_timer(100ms, [this]() { publish_state(); });
 
     RCLCPP_INFO(get_logger(), "ScanTableManager started");
   }
@@ -95,23 +102,25 @@ private:
 
     switch (current_state_) {
       case State::INIT:
-        transition(State::CHECK_TABLE_OCCUPIED);
+        transition(State::CHECK_TABLE_OCCUPIED, "init complete");
         break;
 
       case State::CHECK_TABLE_OCCUPIED:
         if (latest_occupancy_.occupied) {
-          transition(State::CLEAN_SCAN_TABLE);
+          transition(State::CLEAN_SCAN_TABLE, "occupied == true");
         } else {
-          transition(State::RECOVER_ROBOT);
+          transition(State::RECOVER_ROBOT, "occupied == false");
         }
         break;
 
       case State::CLEAN_SCAN_TABLE:
-        call_push(DIR_REJECT, State::RECOVER_ROBOT, State::ERROR_RECOVERY);
+        call_push(DIR_REJECT, State::RECOVER_ROBOT, State::ERROR_RECOVERY,
+          "Push REJECT success", "Push REJECT failed");
         break;
 
       case State::RECOVER_ROBOT:
-        call_move_robot(POS_RED_TOTE, State::PREPARE_ITEM, State::ERROR_RECOVERY);
+        call_move_robot(POS_RED_TOTE, State::PREPARE_ITEM, State::ERROR_RECOVERY,
+          "MoveRobot to RED_TOTE success", "MoveRobot to RED_TOTE failed");
         break;
 
       case State::PREPARE_ITEM:
@@ -119,7 +128,8 @@ private:
         break;
 
       case State::PICK_ITEM:
-        call_move_robot(POS_SCAN_TABLE, State::VERIFY_ITEM_ON_TABLE, State::ERROR_RECOVERY);
+        call_move_robot(POS_SCAN_TABLE, State::VERIFY_ITEM_ON_TABLE, State::ERROR_RECOVERY,
+          "MoveRobot to SCAN_TABLE success", "MoveRobot to SCAN_TABLE failed");
         break;
 
       case State::VERIFY_ITEM_ON_TABLE:
@@ -128,9 +138,9 @@ private:
           sleep_timer_->cancel();
           waiting_for_service_ = false;
           if (latest_occupancy_.occupied) {
-            transition(State::SCAN_ITEM);
+            transition(State::SCAN_ITEM, "occupied == true after pick");
           } else {
-            transition(State::ERROR_RECOVERY);
+            transition(State::ERROR_RECOVERY, "occupied == false after pick, item missing");
           }
         });
         break;
@@ -144,7 +154,8 @@ private:
         break;
 
       case State::PUSH_ITEM_TO_POCKET:
-        call_push(DIR_POCKET, State::CHECK_TABLE_OCCUPIED, State::ERROR_RECOVERY);
+        call_push(DIR_POCKET, State::CHECK_TABLE_OCCUPIED, State::ERROR_RECOVERY,
+          "Push POCKET success", "Push POCKET failed");
         break;
 
       case State::ERROR_RECOVERY:
@@ -154,21 +165,38 @@ private:
         sleep_timer_ = create_wall_timer(2000ms, [this]() {
           sleep_timer_->cancel();
           waiting_for_service_ = false;
-          transition(State::CHECK_TABLE_OCCUPIED);
+          transition(State::CHECK_TABLE_OCCUPIED, "error recovery complete, retrying");
         });
         break;
     }
   }
 
   // ── transition helper ────────────────────────────────────────────────────
-  void transition(State next)
+  void transition(State next, const std::string & reason = "")
   {
-    RCLCPP_INFO(get_logger(), "%s → %s", state_name(current_state_), state_name(next));
+    last_transition_   = std::string(state_name(current_state_)) + " -> " + state_name(next);
+    transition_reason_ = reason;
+    RCLCPP_INFO(get_logger(), "%s -> %s  (%s)",
+      state_name(current_state_), state_name(next), reason.c_str());
     current_state_ = next;
   }
 
+  // ── state publisher ───────────────────────────────────────────────────────
+  void publish_state()
+  {
+    auto msg = scan_table_interfaces::msg::ManagerState();
+    msg.state              = static_cast<uint8_t>(current_state_);
+    msg.state_name         = state_name(current_state_);
+    msg.last_transition    = last_transition_;
+    msg.transition_reason  = transition_reason_;
+    msg.current_item_id    = current_item_id_;
+    msg.item_library_size  = static_cast<uint32_t>(item_library_.size());
+    state_pub_->publish(msg);
+  }
+
   // ── service call helpers ─────────────────────────────────────────────────
-  void call_move_robot(uint8_t target, State on_success, State on_failure)
+  void call_move_robot(uint8_t target, State on_success, State on_failure,
+    const std::string & reason_success, const std::string & reason_failure)
   {
     if (!move_robot_client_->wait_for_service(0s)) {
       RCLCPP_WARN(get_logger(), "/robot/move not available yet");
@@ -179,16 +207,16 @@ private:
     req->target_position = target;
     move_robot_client_->async_send_request(
       req,
-      [this, on_success, on_failure](
+      [this, on_success, on_failure, reason_success, reason_failure](
         rclcpp::Client<scan_table_interfaces::srv::MoveRobot>::SharedFuture future)
       {
         waiting_for_service_ = false;
         auto res = future.get();
         if (res->success) {
-          transition(on_success);
+          transition(on_success, reason_success);
         } else {
           RCLCPP_WARN(get_logger(), "MoveRobot failed: %s", res->error_message.c_str());
-          transition(on_failure);
+          transition(on_failure, reason_failure);
         }
       });
   }
@@ -211,10 +239,10 @@ private:
         if (res->success) {
           current_item_id_ = res->item_id;
           RCLCPP_INFO(get_logger(), "Spawned item id=%u", current_item_id_);
-          transition(on_success);
+          transition(on_success, "SpawnItem success, item_id=" + std::to_string(res->item_id));
         } else {
           RCLCPP_WARN(get_logger(), "SpawnItem failed: %s", res->error_message.c_str());
-          transition(on_failure);
+          transition(on_failure, "SpawnItem failed: " + res->error_message);
         }
       });
   }
@@ -236,20 +264,22 @@ private:
         auto res = future.get();
         if (!res->success) {
           RCLCPP_WARN(get_logger(), "TriggerScan failed: %s", res->error_message.c_str());
-          transition(State::ERROR_RECOVERY);
+          transition(State::ERROR_RECOVERY, "TriggerScan failed: " + res->error_message);
           return;
         }
         if (res->barcodes.empty()) {
-          RCLCPP_INFO(get_logger(), "Scan returned 0 barcodes → CLEAN_SCAN_TABLE");
-          transition(State::CLEAN_SCAN_TABLE);
+          RCLCPP_INFO(get_logger(), "Scan returned 0 barcodes -> CLEAN_SCAN_TABLE");
+          transition(State::CLEAN_SCAN_TABLE, "scan success, barcodes == 0");
           return;
         }
         current_barcodes_.assign(res->barcodes.begin(), res->barcodes.end());
-        transition(State::ITEM_MANAGEMENT);
+        transition(State::ITEM_MANAGEMENT,
+          "scan success, " + std::to_string(res->barcodes.size()) + " barcode(s) found");
       });
   }
 
-  void call_push(uint8_t direction, State on_success, State on_failure)
+  void call_push(uint8_t direction, State on_success, State on_failure,
+    const std::string & reason_success, const std::string & reason_failure)
   {
     if (!push_client_->wait_for_service(0s)) {
       RCLCPP_WARN(get_logger(), "/pusher/push not available yet");
@@ -260,16 +290,16 @@ private:
     req->direction = direction;
     push_client_->async_send_request(
       req,
-      [this, on_success, on_failure](
+      [this, on_success, on_failure, reason_success, reason_failure](
         rclcpp::Client<scan_table_interfaces::srv::Push>::SharedFuture future)
       {
         waiting_for_service_ = false;
         auto res = future.get();
         if (res->success) {
-          transition(on_success);
+          transition(on_success, reason_success);
         } else {
           RCLCPP_WARN(get_logger(), "Push failed: %s", res->error_message.c_str());
-          transition(on_failure);
+          transition(on_failure, reason_failure);
         }
       });
   }
@@ -297,10 +327,10 @@ private:
 
     // check all barcode_ids identical (only one unique id)
     if (seen.size() == 1) {
-      transition(State::PUSH_ITEM_TO_POCKET);
+      transition(State::PUSH_ITEM_TO_POCKET, "single unique barcode_id");
     } else {
       RCLCPP_WARN(get_logger(), "Multiple distinct barcode IDs — ERROR_RECOVERY");
-      transition(State::ERROR_RECOVERY);
+      transition(State::ERROR_RECOVERY, "multiple distinct barcode IDs detected");
     }
   }
 
@@ -312,11 +342,16 @@ private:
   std::vector<scan_table_interfaces::msg::Barcode> current_barcodes_;
   std::map<std::string, uint32_t> item_library_;
 
+  std::string last_transition_{"-> INIT"};
+  std::string transition_reason_{"startup"};
+
   scan_table_interfaces::msg::TableOccupancy latest_occupancy_;
   scan_table_interfaces::msg::RobotStatus    latest_robot_status_;
 
   rclcpp::Subscription<scan_table_interfaces::msg::TableOccupancy>::SharedPtr occupancy_sub_;
   rclcpp::Subscription<scan_table_interfaces::msg::RobotStatus>::SharedPtr    robot_status_sub_;
+
+  rclcpp::Publisher<scan_table_interfaces::msg::ManagerState>::SharedPtr state_pub_;
 
   rclcpp::Client<scan_table_interfaces::srv::MoveRobot>::SharedPtr   move_robot_client_;
   rclcpp::Client<scan_table_interfaces::srv::SpawnItem>::SharedPtr   spawn_item_client_;
@@ -324,6 +359,7 @@ private:
   rclcpp::Client<scan_table_interfaces::srv::Push>::SharedPtr        push_client_;
 
   rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::TimerBase::SharedPtr pub_timer_;
   rclcpp::TimerBase::SharedPtr sleep_timer_;
 };
 

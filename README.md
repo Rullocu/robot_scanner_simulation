@@ -24,7 +24,7 @@ The system is composed of five packages:
 - **scanning_process_monitor** — a read-only Python monitor node that renders a live terminal dashboard showing state machine status, positions, sensor readings, and a rolling log.
 - **robot_scanner_bringup** — top-level launch package that starts all hardware simulation nodes and the scan_table_manager together.
 
-![system architecture](./docs/system_architecture.png)
+![system architecture](./docs/system_architecture.drawio.svg)
 
 ## scan_table_manager state machine
 
@@ -44,7 +44,7 @@ The state machine runs at 1 Hz and drives the following repeating cycle:
 
 On any service call failure the machine falls into **ERROR_RECOVERY** and retries. Hardware mocks simulate a 5% random failure rate to exercise these paths.
 
-![state diagram](./docs/state_diagram.png)
+![state diagram](./docs/state_diagram.drawio.svg)
 
 ## local deployment
 

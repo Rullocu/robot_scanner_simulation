@@ -17,12 +17,14 @@ The system is composed of five packages:
 - **hardware_simulation** — five mock nodes that simulate the physical hardware:
   - `item_mock` — ground truth for item position and barcode data; handles spawn and move requests.
   - `robot_mock` — simulates the robot arm; moves between RED_TOTE and SCAN_TABLE, carrying the item when picking.
-  - `scanner_mock` — simulates six face-scanners; returns barcodes found on the item when triggered.
+  - `scanner_mock` — simulates six face-scanners; operates in triggered mode and returns barcodes found on the item when triggered.
   - `pusher_mock` — simulates the pusher mechanism; moves the item to POCKET or REJECT_AREA on command.
   - `table_sensor_mock` — simulates a weight/presence sensor; reports scan table occupancy derived from item state.
 - **scan_table_manager** — the central C++ state machine node that orchestrates the full workflow by calling hardware services and reacting to sensor topics.
 - **scanning_process_monitor** — a read-only Python monitor node that renders a live terminal dashboard showing state machine status, positions, sensor readings, and a rolling log.
 - **robot_scanner_bringup** — top-level launch package that starts all hardware simulation nodes and the scan_table_manager together.
+
+More details of the system modules can be found in the [system modules](./doc/module_description.md) file.
 
 ![system architecture](./doc/system_architecture.drawio.svg)
 
@@ -34,15 +36,15 @@ The state machine runs at 1 Hz and drives the following repeating cycle:
 2. **PREPARE_ITEM** — spawns a new item in the RED_TOTE via `/item/spawn`.
 3. **PICK_ITEM** — commands the robot to pick the item and place it on the scan table via `/robot/move`.
 4. **VERIFY_ITEM_ON_TABLE** — confirms the scan table sensor reports `occupied=true` before proceeding.
-5. **SCAN_ITEM** — triggers the barcode scanners via `/scanner/trigger` and collects results.
-6. **ITEM_MANAGEMENT** — deduplicates barcodes, updates the item library, and validates that all barcodes belong to a single item. Routes to pocket if valid, or to error recovery if conflicting IDs are found.
+5. **SCAN_ITEM** — triggers the barcode scanners via `/scanner/trigger` and collects results.if scanner encounter hardware failure, go to ERROR_RECOVERY; if no barcode is found, go to CLEAN_SCAN_TABLE. if barcode is found, go to ITEM_MANAGEMENT.
+6. **ITEM_MANAGEMENT** — deduplicates barcodes, updates the item library, and validates that all barcodes belong to a single item. Routes to POCKET if valid, or to REJECT_AREA if conflicting IDs or no ID is found.
 7. **PUSH_ITEM_TO_POCKET** — actuates the pusher toward POCKET via `/pusher/push`.
 8. **CHECK_TABLE_OCCUPIED** — checks whether the table is clear after pushing; if still occupied, routes to CLEAN_SCAN_TABLE.
 9. **CLEAN_SCAN_TABLE** — pushes the item toward REJECT_AREA as a fallback clearance step.
 10. **RECOVER_ROBOT** — returns the robot to RED_TOTE, ready for the next cycle.
 11. **ERROR_RECOVERY** — logs the error, waits 2 seconds, and retries from PREPARE_ITEM.
 
-On any service call failure the machine falls into **ERROR_RECOVERY** and retries. Hardware mocks simulate a 5% random failure rate to exercise these paths.
+On any service call failure the machine falls into **ERROR_RECOVERY** and retries. Hardware mocks simulate a **5% random failure rate** to exercise these paths.
 
 ![state diagram](./doc/state_diagram.drawio.svg)
 

@@ -46,6 +46,8 @@ The state machine runs at 1 Hz and drives the following repeating cycle:
 
 On any service call failure the machine falls into **ERROR_RECOVERY** and retries. Hardware mocks simulate a **5% random failure rate** to exercise these paths.
 
+More details of the state machine can be found in the [state_machine](./doc/StateMachine.md) file.
+
 ![state diagram](./doc/state_diagram.drawio.svg)
 
 ## local deployment
@@ -107,3 +109,19 @@ ros2 run scanning_process_monitor monitor
 ```
 
 ![monitor](./doc/monitor.png)
+
+### Desired output
+
+`item_mock` cycles through 5 predefined items in order, repeating after item 5. Each item exercises a distinct barcode scenario:
+
+| Item | Slot label | Barcodes | Unique IDs | Expected outcome |
+|---|---|---|---|---|
+| 1 | `two-faces` | 2 (same ID, 2 different faces) | 1 (`AAAA1111`) | → PUSH_ITEM_TO_POCKET |
+| 2 | `same-face` | 2 (same ID, same face) | 1 (`BBBB2222`) | → PUSH_ITEM_TO_POCKET |
+| 3 | `no-barcode` | 0 | 0 | → CLEAN_SCAN_TABLE |
+| 4 | `full-scan` | 6 (same ID, all 6 faces) | 1 (`CCCC3333`) | → PUSH_ITEM_TO_POCKET |
+| 5 | `conflicting` | 4 (two distinct IDs across faces) | 2 (`DDDD4444`, `EEEE5555`) | → CLEAN_SCAN_TABLE |
+
+After item 5 the cycle repeats from item 1.
+
+Hardware errors can occur at any time — each service call in `robot_mock`, `scanner_mock`, and `pusher_mock` has a **5% random failure rate**. When a failure occurs, the state machine transitions to **ERROR_RECOVERY**, waits 2 seconds (simulating manual intervention), and retries from **PREPARE_ITEM**. The item slot index does not advance on a failed spawn, so the same item is retried.

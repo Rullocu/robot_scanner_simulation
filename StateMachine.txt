@@ -1,24 +1,7 @@
 STATE: INIT
   action: none
-  transition: → CHECK_TABLE_OCCUPIED
+  transition: → PREPARE_ITEM
 
-STATE: CHECK_TABLE_OCCUPIED
-  action: read /scan_table/occupancy topic (TableOccupancy.msg)
-  transition:
-    occupied == true  → CLEAN_SCAN_TABLE
-    occupied == false → RECOVER_ROBOT
-
-STATE: CLEAN_SCAN_TABLE
-  action: call /pusher/push (Push.srv, direction=REJECT)
-  transition:
-    success == true  → RECOVER_ROBOT
-    success == false → ERROR_RECOVERY
-
-STATE: RECOVER_ROBOT
-  action: call /robot/pick_and_place (MoveRobot.srv, source=SCAN_TABLE, dest=RED_TOTE)
-  transition:
-    success == true  → PREPARE_ITEM
-    success == false → ERROR_RECOVERY
 
 STATE: PREPARE_ITEM
   action: call /item/spawn (SpawnItem.srv)
@@ -60,8 +43,26 @@ STATE: PUSH_ITEM_TO_POCKET
     success == true  → CHECK_TABLE_OCCUPIED
     success == false → ERROR_RECOVERY
 
+STATE: CHECK_TABLE_OCCUPIED
+  action: read /scan_table/occupancy topic (TableOccupancy.msg)
+  transition:
+    occupied == true  → CLEAN_SCAN_TABLE
+    occupied == false → RECOVER_ROBOT
+
+STATE: CLEAN_SCAN_TABLE
+  action: call /pusher/push (Push.srv, direction=REJECT)
+  transition:
+    success == true  → RECOVER_ROBOT
+    success == false → ERROR_RECOVERY
+
+STATE: RECOVER_ROBOT
+  action: call /robot/pick_and_place (MoveRobot.srv, source=SCAN_TABLE, dest=RED_TOTE)
+  transition:
+    success == true  → PREPARE_ITEM
+    success == false → ERROR_RECOVERY
+
 STATE: ERROR_RECOVERY
   action:
     log_error("manual intervention required")
     sleep(2 seconds)
-  transition: → CHECK_TABLE_OCCUPIED
+  transition: → PREPARE_ITEM

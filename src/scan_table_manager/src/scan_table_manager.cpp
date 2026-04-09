@@ -23,15 +23,15 @@ static constexpr uint8_t DIR_REJECT     = 1;
 // ── state machine states ─────────────────────────────────────────────────────
 enum class State {
   INIT,
-  CHECK_TABLE_OCCUPIED,
-  CLEAN_SCAN_TABLE,
-  RECOVER_ROBOT,
   PREPARE_ITEM,
   PICK_ITEM,
   VERIFY_ITEM_ON_TABLE,
   SCAN_ITEM,
   ITEM_MANAGEMENT,
   PUSH_ITEM_TO_POCKET,
+  CHECK_TABLE_OCCUPIED,
+  CLEAN_SCAN_TABLE,
+  RECOVER_ROBOT,
   ERROR_RECOVERY,
 };
 
@@ -39,15 +39,15 @@ static const char * state_name(State s)
 {
   switch (s) {
     case State::INIT:                 return "INIT";
-    case State::CHECK_TABLE_OCCUPIED: return "CHECK_TABLE_OCCUPIED";
-    case State::CLEAN_SCAN_TABLE:     return "CLEAN_SCAN_TABLE";
-    case State::RECOVER_ROBOT:        return "RECOVER_ROBOT";
     case State::PREPARE_ITEM:         return "PREPARE_ITEM";
     case State::PICK_ITEM:            return "PICK_ITEM";
     case State::VERIFY_ITEM_ON_TABLE: return "VERIFY_ITEM_ON_TABLE";
     case State::SCAN_ITEM:            return "SCAN_ITEM";
     case State::ITEM_MANAGEMENT:      return "ITEM_MANAGEMENT";
     case State::PUSH_ITEM_TO_POCKET:  return "PUSH_ITEM_TO_POCKET";
+    case State::CHECK_TABLE_OCCUPIED: return "CHECK_TABLE_OCCUPIED";
+    case State::CLEAN_SCAN_TABLE:     return "CLEAN_SCAN_TABLE";
+    case State::RECOVER_ROBOT:        return "RECOVER_ROBOT";
     case State::ERROR_RECOVERY:       return "ERROR_RECOVERY";
     default:                          return "UNKNOWN";
   }
@@ -102,7 +102,7 @@ private:
 
     switch (current_state_) {
       case State::INIT:
-        transition(State::CHECK_TABLE_OCCUPIED, "init complete");
+        transition(State::PREPARE_ITEM, "init complete");
         break;
 
       case State::CHECK_TABLE_OCCUPIED:
@@ -165,7 +165,7 @@ private:
         sleep_timer_ = create_wall_timer(2000ms, [this]() {
           sleep_timer_->cancel();
           waiting_for_service_ = false;
-          transition(State::CHECK_TABLE_OCCUPIED, "error recovery complete, retrying");
+          transition(State::PREPARE_ITEM, "error recovery complete, retrying");
         });
         break;
     }

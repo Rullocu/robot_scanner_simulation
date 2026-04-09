@@ -22,29 +22,29 @@ BG_YELLOW = '\033[43;30m'  # yellow background, black text → BUSY robot
 # Order must match the C++ State enum
 ALL_STATES = [
     'INIT',
-    'CHECK_TABLE_OCCUPIED',
-    'CLEAN_SCAN_TABLE',
-    'RECOVER_ROBOT',
     'PREPARE_ITEM',
     'PICK_ITEM',
     'VERIFY_ITEM_ON_TABLE',
     'SCAN_ITEM',
     'ITEM_MANAGEMENT',
     'PUSH_ITEM_TO_POCKET',
+    'CHECK_TABLE_OCCUPIED',
+    'CLEAN_SCAN_TABLE',
+    'RECOVER_ROBOT',
     'ERROR_RECOVERY',
 ]
 
 # Two-column layout: main flow (left) | side branches (right)
 LEFT_STATES = [
     'INIT',
-    'CHECK_TABLE_OCCUPIED',
-    'RECOVER_ROBOT',
     'PREPARE_ITEM',
     'PICK_ITEM',
     'VERIFY_ITEM_ON_TABLE',
     'SCAN_ITEM',
     'ITEM_MANAGEMENT',
     'PUSH_ITEM_TO_POCKET',
+    'CHECK_TABLE_OCCUPIED',
+    'RECOVER_ROBOT',
 ]
 RIGHT_STATES = [
     'CLEAN_SCAN_TABLE',

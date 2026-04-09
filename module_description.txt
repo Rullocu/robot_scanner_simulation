@@ -256,9 +256,9 @@ Services:
   Calls: /pusher/push (Push.srv)
 
 Internal state:
-  - current_state: enum (INIT, CHECK_TABLE_OCCUPIED, CLEAN_SCAN_TABLE,
-    RECOVER_ROBOT, PREPARE_ITEM, PICK_ITEM, VERIFY_ITEM_ON_TABLE,
-    SCAN_ITEM, ITEM_MANAGEMENT, PUSH_ITEM_TO_POCKET, ERROR_RECOVERY)
+  - current_state: enum (INIT, PREPARE_ITEM, PICK_ITEM, VERIFY_ITEM_ON_TABLE,
+    SCAN_ITEM, ITEM_MANAGEMENT, PUSH_ITEM_TO_POCKET, CHECK_TABLE_OCCUPIED,
+    CLEAN_SCAN_TABLE, RECOVER_ROBOT, ERROR_RECOVERY)
   - current_item_id: uint8
   - current_barcodes: vector<Barcode>
   - item_library: map<string, uint32> (barcode_id -> count)

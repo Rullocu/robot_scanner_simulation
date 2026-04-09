@@ -19,6 +19,9 @@ ament_target_dependencies(scan_table_manager rclcpp scan_table_interfaces)
 install(TARGETS scan_table_manager
   DESTINATION lib/${PROJECT_NAME})
 
+install(DIRECTORY include/
+  DESTINATION include/)
+
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME})
 

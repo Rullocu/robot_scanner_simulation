@@ -33,8 +33,7 @@
 ## SCAN_ITEM
 - **Action:** call `/scanner/trigger` (`TriggerScan.srv`)
 - **Transition:**
-  - `success == true && barcodes.size() > 0` → `ITEM_MANAGEMENT`
-  - `success == true && barcodes.size() == 0` → `CLEAN_SCAN_TABLE`
+  - `success == true` → `ITEM_MANAGEMENT`
   - `success == false` → `ERROR_RECOVERY`
 
 ---
@@ -45,8 +44,8 @@
   - Update `item_library` map `<string, uint32>` (`barcode_id` → count)
   - Log barcodes
 - **Transition:**
-  - All `barcode_id`s identical → `PUSH_ITEM_TO_POCKET`
-  - `barcode_id`s differ → `ERROR_RECOVERY`
+  - All `barcode_id`s differ or `barcodes.size() == 0` → `CLEAN_SCAN_TABLE`
+  - `barcode_id`s are identical → `PUSH_ITEM_TO_POCKET`
 
 ---
 

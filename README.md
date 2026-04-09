@@ -36,8 +36,8 @@ The state machine runs at 1 Hz and drives the following repeating cycle:
 2. **PREPARE_ITEM** — spawns a new item in the RED_TOTE via `/item/spawn`.
 3. **PICK_ITEM** — commands the robot to pick the item and place it on the scan table via `/robot/move`.
 4. **VERIFY_ITEM_ON_TABLE** — confirms the scan table sensor reports `occupied=true` before proceeding.
-5. **SCAN_ITEM** — triggers the barcode scanners via `/scanner/trigger` and collects results.if scanner encounter hardware failure, go to ERROR_RECOVERY; if no barcode is found, go to CLEAN_SCAN_TABLE. if barcode is found, go to ITEM_MANAGEMENT.
-6. **ITEM_MANAGEMENT** — deduplicates barcodes, updates the item library, and validates that all barcodes belong to a single item. Routes to POCKET if valid, or to REJECT_AREA if conflicting IDs or no ID is found.
+5. **SCAN_ITEM** — triggers the barcode scanners via `/scanner/trigger` and collects results. On hardware failure goes to ERROR_RECOVERY; on success (including zero barcodes) always goes to ITEM_MANAGEMENT.
+6. **ITEM_MANAGEMENT** — deduplicates barcodes, updates the item library, and classifies the item. Single unique barcode ID → PUSH_ITEM_TO_POCKET; zero barcodes or multiple distinct barcode IDs → CLEAN_SCAN_TABLE.
 7. **PUSH_ITEM_TO_POCKET** — actuates the pusher toward POCKET via `/pusher/push`.
 8. **CHECK_TABLE_OCCUPIED** — checks whether the table is clear after pushing; if still occupied, routes to CLEAN_SCAN_TABLE.
 9. **CLEAN_SCAN_TABLE** — pushes the item toward REJECT_AREA as a fallback clearance step.
@@ -82,17 +82,17 @@ The output will look like this:
 [scan_table_manager-1] [INFO] [scan_table_manager]: CHECK_TABLE_OCCUPIED -> RECOVER_ROBOT  (occupied == false)
 [robot_mock-3]         [INFO] [robot_mock]:          Robot moved to position 0
 [scan_table_manager-1] [INFO] [scan_table_manager]: RECOVER_ROBOT -> PREPARE_ITEM  (MoveRobot to RED_TOTE success)
-[item_mock-2]          [INFO] [item_mock]:           Spawned item 27 with 5 barcodes, weight=3.98 kg
-[scan_table_manager-1] [INFO] [scan_table_manager]: Spawned item id=27
-[scan_table_manager-1] [INFO] [scan_table_manager]: PREPARE_ITEM -> PICK_ITEM  (SpawnItem success, item_id=27)
-[item_mock-2]          [INFO] [item_mock]:           Item 27 moved to position 1
+[item_mock-2]          [INFO] [item_mock]:           Spawned item 1 (slot: two-faces) with 2 barcodes, weight=2.0 kg
+[scan_table_manager-1] [INFO] [scan_table_manager]: Spawned item id=1
+[scan_table_manager-1] [INFO] [scan_table_manager]: PREPARE_ITEM -> PICK_ITEM  (SpawnItem success, item_id=1)
+[item_mock-2]          [INFO] [item_mock]:           Item 1 moved to position 1
 [robot_mock-3]         [INFO] [robot_mock]:          Robot moved to position 1
 [scan_table_manager-1] [INFO] [scan_table_manager]: PICK_ITEM -> VERIFY_ITEM_ON_TABLE  (MoveRobot to SCAN_TABLE success)
 [scan_table_manager-1] [INFO] [scan_table_manager]: VERIFY_ITEM_ON_TABLE -> SCAN_ITEM  (occupied == true after pick)
-[scanner_mock-4]       [INFO] [scanner_mock]:        Scan complete: 5 barcodes found
-[scan_table_manager-1] [INFO] [scan_table_manager]: SCAN_ITEM -> ITEM_MANAGEMENT  (scan success, 5 barcode(s) found)
-[scan_table_manager-1] [INFO] [scan_table_manager]: Item 27 — 1 unique barcode(s):
-[scan_table_manager-1] [INFO] [scan_table_manager]:   barcode_id=0057f48e  face=0  total_seen=1
+[scanner_mock-4]       [INFO] [scanner_mock]:        Scan complete: 2 barcodes found
+[scan_table_manager-1] [INFO] [scan_table_manager]: SCAN_ITEM -> ITEM_MANAGEMENT  (scan success, 2 barcode(s) found)
+[scan_table_manager-1] [INFO] [scan_table_manager]: Item 1 — 1 unique barcode(s):
+[scan_table_manager-1] [INFO] [scan_table_manager]:   barcode_id=AAAA1111  face=1  total_seen=1
 ```
 
 ### monitor

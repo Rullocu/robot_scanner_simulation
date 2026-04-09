@@ -267,11 +267,6 @@ private:
           transition(State::ERROR_RECOVERY, "TriggerScan failed: " + res->error_message);
           return;
         }
-        if (res->barcodes.empty()) {
-          RCLCPP_INFO(get_logger(), "Scan returned 0 barcodes -> CLEAN_SCAN_TABLE");
-          transition(State::CLEAN_SCAN_TABLE, "scan success, barcodes == 0");
-          return;
-        }
         current_barcodes_.assign(res->barcodes.begin(), res->barcodes.end());
         transition(State::ITEM_MANAGEMENT,
           "scan success, " + std::to_string(res->barcodes.size()) + " barcode(s) found");
@@ -325,12 +320,15 @@ private:
         id.c_str(), face, item_library_[id]);
     }
 
-    // check all barcode_ids identical (only one unique id)
+    // identical barcodes (exactly one unique id) → pocket; all other cases → clean table
     if (seen.size() == 1) {
       transition(State::PUSH_ITEM_TO_POCKET, "single unique barcode_id");
+    } else if (seen.size() == 0) {
+      RCLCPP_INFO(get_logger(), "No barcodes found -> CLEAN_SCAN_TABLE");
+      transition(State::CLEAN_SCAN_TABLE, "no barcodes");
     } else {
-      RCLCPP_WARN(get_logger(), "Multiple distinct barcode IDs — ERROR_RECOVERY");
-      transition(State::ERROR_RECOVERY, "multiple distinct barcode IDs detected");
+      RCLCPP_WARN(get_logger(), "Multiple distinct barcode IDs -> CLEAN_SCAN_TABLE");
+      transition(State::CLEAN_SCAN_TABLE, "multiple distinct barcode IDs detected");
     }
   }
 

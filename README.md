@@ -15,7 +15,7 @@ The system is composed of five packages:
 
 - **scan_table_interfaces** — shared ROS2 message and service definitions used across all packages.
 - **hardware_simulation** — five mock nodes that simulate the physical hardware:
-  - `item_mock` — ground truth for item position and barcode data; handles spawn and move requests.
+  - `item_mock` — ground truth for item position and barcode data; handles spawn and move requests. Instead of generating random items, it cycles through 5 predefined items in order (repeating after item 5), each designed to exercise a distinct barcode scenario: identical barcodes across two faces, identical barcodes on the same face, no barcodes, full six-face coverage, and conflicting barcode IDs. All items use a fixed weight of 2.0 kg.
   - `robot_mock` — simulates the robot arm; moves between RED_TOTE and SCAN_TABLE, carrying the item when picking.
   - `scanner_mock` — simulates six face-scanners; operates in triggered mode and returns barcodes found on the item when triggered.
   - `pusher_mock` — simulates the pusher mechanism; moves the item to POCKET or REJECT_AREA on command.

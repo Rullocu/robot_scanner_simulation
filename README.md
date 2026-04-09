@@ -52,6 +52,8 @@ More details of the state machine can be found in the [state_machine](./doc/Stat
 
 ## local deployment
 
+> **Note:** This project was developed in a **WSL2 environment on Windows 11**. The `run_ros2_docker_no_display.sh` script has been modified specifically for WSL2 and may or may not work on a native Ubuntu host. If it fails, try the alternative `./run_ros2_docker.sh` instead.
+
 prerequisit : docker
 ```bash
 sudo ./run_ros2_docker_no_display.sh

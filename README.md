@@ -124,4 +124,4 @@ ros2 run scanning_process_monitor monitor
 
 After item 5 the cycle repeats from item 1.
 
-Hardware errors can occur at any time — each service call in `robot_mock`, `scanner_mock`, and `pusher_mock` has a **5% random failure rate**. When a failure occurs, the state machine transitions to **ERROR_RECOVERY**, waits 2 seconds (simulating manual intervention), and retries from **PREPARE_ITEM**. The item slot index does not advance on a failed spawn, so the same item is retried.
+Hardware errors can occur at any time — each service call in `robot_mock`, `scanner_mock`, and `pusher_mock` has a **5% random failure rate**. When a failure occurs, the state machine transitions to **ERROR_RECOVERY**, waits 2 seconds (simulating manual intervention), and retries from **PREPARE_ITEM**, and deleted the failed item, start from next item.

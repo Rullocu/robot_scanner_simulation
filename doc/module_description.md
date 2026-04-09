@@ -131,10 +131,22 @@ Manages virtual item lifecycle and state. Acts as ground truth for item position
 | Serves | `/item/move` | `MoveItem.srv` |
 
 **Business logic:**
-- **SpawnItem:** Delete current item, generate new item in `RED_TOTE` with random 0–6 barcodes across random faces, random weight 1.0–5.0 kg. Return new `item_id`.
+- **SpawnItem:** Delete current item, cycle to the next item in the predefined item list (wraps around), place it in `RED_TOTE`. Return new `item_id`.
 - **MoveItem:** Validate current item exists, update item position to `target_position`. Return success.
 - Publishes full item state at 10 Hz for debug and mock consumption.
 - No failure simulation — this is ground truth.
+
+**Predefined item list** (cycled in order on each `SpawnItem` call):
+
+| Slot | Description | Barcodes |
+|---|---|---|
+| 1 | Two identical barcodes on two different faces | `barcode_id="AAAA1111"`, faces `[0, 1]` |
+| 2 | Two identical barcodes on the same face | `barcode_id="BBBB2222"`, faces `[2, 2]` |
+| 3 | No barcodes | *(empty)* |
+| 4 | Six identical barcodes, one on each face | `barcode_id="CCCC3333"`, faces `[0, 1, 2, 3, 4, 5]` |
+| 5 | Conflicting barcodes (two different IDs across faces) | `barcode_id="DDDD4444"` on faces `[0, 1]`, `barcode_id="EEEE5555"` on faces `[2, 3]` |
+
+All items use a fixed weight of `2.0 kg`. Item IDs cycle `1–5` and reset after slot 5.
 
 **Dependencies:** `scan_table_interfaces`
 

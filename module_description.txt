@@ -340,15 +340,19 @@ Dependencies: scan_table_interfaces
 ================================================================================
 LAUNCH
 ================================================================================
-File: scan_table_launch.py
+Package: robot_scanner_bringup
 
-Launches:
-  1. item_mock
-  2. robot_mock
-  3. scanner_mock
-  4. pusher_mock
-  5. table_sensor_mock
-  6. ScanTableManager
+Two launch files are used:
+
+1. scan_table_manager/launch/scan_table_manager.launch.py
+   - Launches ScanTableManager node only.
+
+2. robot_scanner_bringup/launch/bringup.launch.py  (top-level entry point)
+   - Includes scan_table_manager.launch.py
+   - Launches all hardware simulation nodes:
+       item_mock, robot_mock, scanner_mock, pusher_mock, table_sensor_mock
+   - Run with:
+       ros2 launch robot_scanner_bringup bringup.launch.py
 
 Note: ScanningProcessMonitor is NOT part of the main launch file.
 Run it separately in its own terminal:
@@ -368,8 +372,10 @@ scan_table_interfaces
   │     └── table_sensor_mock
   ├── scan_table_manager (depends on interfaces)
   │     └── ScanTableManager
-  └── scanning_process_monitor (depends on interfaces, read-only observer)
-        └── ScanningProcessMonitor
+  ├── scanning_process_monitor (depends on interfaces, read-only observer)
+  │     └── ScanningProcessMonitor
+  └── robot_scanner_bringup (top-level launch package)
+        └── bringup.launch.py → includes scan_table_manager.launch.py + hardware_simulation nodes
 
 
 ================================================================================

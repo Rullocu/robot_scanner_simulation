@@ -127,3 +127,42 @@ ros2 run scanning_process_monitor monitor
 After item 5 the cycle repeats from item 1.
 
 Hardware errors can occur at any time — each service call in `robot_mock`, `scanner_mock`, and `pusher_mock` has a **5% random failure rate**. When a failure occurs, the state machine transitions to **ERROR_RECOVERY**, waits 2 seconds (simulating manual intervention), and retries from **PREPARE_ITEM**, and deleted the failed item, start from next item.
+
+---
+
+## Q&A — Task A: System Architecture
+
+### Software
+
+**Q: Make a state diagram for the system.**
+
+A: See the state diagram in the [scan_table_manager state machine](#scan_table_manager-state-machine) section above, and the detailed diagram in [`doc/state_diagram.drawio.svg`](./doc/state_diagram.drawio.svg).
+
+---
+
+**Q: How would you structure your nodes? How should they communicate with each other?**
+
+A: The system is divided into four functional layers, each implemented as one or more ROS2 nodes:
+
+- **Hardware simulation nodes** (`item_mock`, `robot_mock`, `scanner_mock`, `pusher_mock`, `table_sensor_mock`) — each node encapsulates a single physical device and exposes a ROS2 service interface for commanding that device.
+- **Central orchestrator** (`scan_table_manager`) — a single state machine node that drives the full workflow by calling hardware services and reacting to sensor data.
+- **Monitor node** (`scanning_process_monitor`) — a read-only observer node that subscribes to state topics and renders a live dashboard.
+- **Bringup package** (`robot_scanner_bringup`) — launches all nodes together.
+
+Communication follows two patterns:
+- **Services** are used for all hardware actions (spawn item, move robot, trigger scanner, actuate pusher). This ensures synchronous, request-response semantics where the caller waits for confirmation before advancing the state machine.
+- **Topics** are used for sensor state (e.g., table occupancy). These are published continuously by the hardware nodes and consumed by both the state machine and the monitor without tight coupling.
+
+---
+
+### Hardware
+
+**Q: How many scanners do we need, and how should they be mounted?**
+
+A: Six scanners are required — one per face of the item — so that all six faces can be scanned simultaneously in a single trigger cycle, without any need to reposition the item. Five scanners are fixed at orthogonal angles covering the four sides and the bottom. The top scanner is mounted at a slight inward tilt to keep its field of view clear of the robot arm during placement, while still reliably covering the top face.
+
+---
+
+**Q: Do we need to add extra sensors? Which ones?**
+
+A: Yes. In addition to the six barcode scanners, a force or weight sensor on the scan table surface is recommended. This sensor serves two purposes: it confirms that an item is physically present before scanning begins, and it detects edge cases such as an item slipping off the table or an item with no readable barcodes on any face. Without this sensor, the system would have no reliable way to distinguish a correctly cleared table from a table that was never occupied in the first place.
